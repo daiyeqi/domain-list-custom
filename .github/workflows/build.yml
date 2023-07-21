@@ -1,4 +1,4 @@
-name: Build geosite.dat
+name: Export plaintext file
 on:
   workflow_dispatch:
   schedule:
@@ -51,11 +51,11 @@ jobs:
         run: |
           go run ./ --datapath=./domain-list-community/data
 
-      - name: Generate sha256 hashsum
-        if: ${{ env.NeedToSync }}
-        run: |
-          cd publish || exit 1
-          sha256sum geosite.dat > geosite.dat.sha256sum
+      # - name: Generate sha256 hashsum
+      #   if: ${{ env.NeedToSync }}
+      #   run: |
+      #     cd publish || exit 1
+      #     sha256sum geosite.dat > geosite.dat.sha256sum
 
       - name: Git push assets to "release" branch
         if: ${{ env.NeedToSync }}
@@ -79,7 +79,6 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            ./publish/geosite.dat
-            ./publish/geosite.dat.sha256sum
+            ./publish/*.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -3,8 +3,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"strings"
 
 	router "github.com/v2fly/v2ray-core/v5/app/router/routercommon"
@@ -83,8 +86,13 @@ func (lm *ListInfoMap) FlattenAndGenUniqueDomainList() error {
 		fmt.Println(inclusionMap)
 		fmt.Println()
 
-		for inclusionFilename := range inclusionMap {
-			if err := (*lm)[inclusionFilename].Flatten(lm); err != nil {
+		fileNames := slices.Collect(maps.Keys(inclusionMap))
+		sort.SliceStable(fileNames, func(i, j int) bool {
+			return fileNames[i] < fileNames[j]
+		})
+
+		for _, name := range fileNames {
+			if err := (*lm)[name].Flatten(lm); err != nil {
 				return err
 			}
 		}

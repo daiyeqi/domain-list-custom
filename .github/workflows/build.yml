@@ -14,51 +14,57 @@ jobs:
     steps:
       - name: Compare latest tags and set variables
         run: |
-          upstreamLatestTag=$(curl -sSL --connect-timeout 5 --retry 5 -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/v2fly/domain-list-community/releases/latest | grep "tag_name" | cut -d\" -f4)
-          thisLatestTag=$(curl -sSL --connect-timeout 5 --retry 5 -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/${{ github.repository }}/releases/latest | grep "tag_name" | cut -d\" -f4)
-          if [[ $upstreamLatestTag != $thisLatestTag ]]; then
-            echo "NeedToSync=true" >> $GITHUB_ENV
-          fi
-          echo "RELEASE_NAME=$upstreamLatestTag" >> $GITHUB_ENV
-          echo "TAG_NAME=$upstreamLatestTag" >> $GITHUB_ENV
+          # upstreamLatestTag=$(curl -sSL --connect-timeout 5 --retry 5 -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/v2fly/domain-list-community/releases/latest | grep "tag_name" | cut -d\" -f4)
+          # thisLatestTag=$(curl -sSL --connect-timeout 5 --retry 5 -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/${{ github.repository }}/releases/latest | grep "tag_name" | cut -d\" -f4)
+          # if [[ $upstreamLatestTag != $thisLatestTag ]]; then
+          #   echo "NeedToSync=true" >> $GITHUB_ENV
+          # fi
+          # echo "RELEASE_NAME=$upstreamLatestTag" >> $GITHUB_ENV
+          # echo "TAG_NAME=$upstreamLatestTag" >> $GITHUB_ENV
+          echo "GEOSITE_HASH=https://raw.githubusercontent.com/daiyeqi/domain-list-custom/release/geosite.dat.sha256sum" >> $GITHUB_ENV
+          echo "TAG_NAME=$(date +%Y%m%d%H%M)" >> $GITHUB_ENV
         shell: bash
 
       - name: Checkout codebase
         uses: actions/checkout@v5
-        if: ${{ env.NeedToSync }}
 
       - name: Setup Go
         uses: actions/setup-go@v5
-        if: ${{ env.NeedToSync }}
         with:
           go-version-file: ./go.mod
 
       - name: Checkout v2fly/domain-list-community
-        if: ${{ env.NeedToSync }}
         uses: actions/checkout@v5
         with:
           repository: v2fly/domain-list-community
           path: domain-list-community
 
       - name: Append attribute rules
-        if: ${{ env.NeedToSync }}
         run: |
           echo "include:geolocation-!cn @cn" >> ./domain-list-community/data/cn
           echo "include:geolocation-cn @!cn" >> ./domain-list-community/data/geolocation-\!cn
 
       - name: Get dependencies and run
-        if: ${{ env.NeedToSync }}
         run: |
           go run ./ --datapath=./domain-list-community/data
 
-      - name: Generate sha256 hashsum
-        if: ${{ env.NeedToSync }}
+      - name: Move and zip files and generate sha256 hash
         run: |
           cd publish || exit 1
           sha256sum geosite.dat > geosite.dat.sha256sum
+          sha256sum gfwlist.txt > gfwlist.txt.sha256sum
+          tar --sort=name --mtime='1970-01-01 00:00:00Z' -cf rules.tar --exclude=gfwlist.txt *.txt
+          sha256sum rules.tar > rules.tar.sha256sum
+
+      - name: Compare build checksum against previous release
+        run: |
+          cd publish || exit 1
+          if ! diff -q geosite.dat.sha256sum <(curl -sL "${{ env.GEOSITE_HASH }}"); then
+            echo "NEED_RELEASE=true" >> $GITHUB_ENV
+          fi
 
       - name: Git push assets to "release" branch
-        if: ${{ env.NeedToSync }}
+        if: ${{ env.NEED_RELEASE }}
         run: |
           cd publish || exit 1
           git init
@@ -66,20 +72,25 @@ jobs:
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b release
           git add .
-          git commit -m "${{ env.RELEASE_NAME }}"
+          git commit -m "Released on ${{ env.TAG_NAME }}"
           git remote add publish "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
           git push -f publish release
 
       - name: Release and upload assets
-        if: ${{ env.NeedToSync }}
+        if: ${{ env.NEED_RELEASE }}
         uses: softprops/action-gh-release@v2
         with:
-          name: ${{ env.RELEASE_NAME }}
+          name: ${{ env.TAG_NAME }}
           tag_name: ${{ env.TAG_NAME }}
           draft: false
           prerelease: false
           files: |
             ./publish/geosite.dat
             ./publish/geosite.dat.sha256sum
+            ./publish/gfwlist.txt
+            ./publish/gfwlist.txt.sha256sum
+            ./publish/rules.tar
+            ./publish/rules.tar.sha256sum
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

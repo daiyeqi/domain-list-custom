@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -201,7 +203,12 @@ func (l *ListInfo) classifyRule(rule *router.Domain) {
 // to remove duplications of them.
 func (l *ListInfo) Flatten(lm *ListInfoMap) error {
 	if l.HasInclusion {
-		for filename, attrs := range l.InclusionAttributeMap {
+		fileNames := slices.Collect(maps.Keys(l.InclusionAttributeMap))
+		sort.SliceStable(fileNames, func(i, j int) bool {
+			return fileNames[i] < fileNames[j]
+		})
+		for _, filename := range fileNames {
+			attrs := l.InclusionAttributeMap[filename]
 			for _, attrWanted := range attrs {
 				includedList := (*lm)[filename]
 				switch string(attrWanted) {

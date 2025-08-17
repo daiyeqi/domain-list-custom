@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"google.golang.org/protobuf/proto"
@@ -79,6 +80,10 @@ func main() {
 
 	// Generate dlc.dat
 	if geositeList := listInfoMap.ToProto(excludeAttrsInFile); geositeList != nil {
+		// Sort protoList so the marshaled list is reproducible
+		sort.SliceStable(geositeList.Entry, func(i, j int) bool {
+			return geositeList.Entry[i].CountryCode < geositeList.Entry[j].CountryCode
+		})
 		protoBytes, err := proto.Marshal(geositeList)
 		if err != nil {
 			fmt.Println("Failed:", err)

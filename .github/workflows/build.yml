@@ -26,7 +26,7 @@ jobs:
         shell: bash
 
       - name: Checkout codebase
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Go
         uses: actions/setup-go@v6
@@ -34,7 +34,7 @@ jobs:
           go-version-file: ./go.mod
 
       - name: Checkout v2fly/domain-list-community
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: v2fly/domain-list-community
           path: domain-list-community

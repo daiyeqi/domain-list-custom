@@ -8,6 +8,10 @@ on:
       - master
     paths-ignore:
       - "**/README.md"
+
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -76,12 +80,22 @@ jobs:
           git remote add publish "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
           git push -f publish release
 
+      - name: Cleanup releases and tags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KEEP_RELEASES: 5
+        if: ${{ env.NEED_RELEASE }}
+        run: |
+          gh release list --repo "${{ github.repository }}" --limit 1000 --json tagName --jq ".[$KEEP_RELEASES:] | .[].tagName" | xargs -r -n1 gh release delete --repo "${{ github.repository }}" --cleanup-tag --yes
+        shell: bash
+
       - name: Release and upload assets
         if: ${{ env.NEED_RELEASE }}
         uses: softprops/action-gh-release@v3
         with:
           name: ${{ env.TAG_NAME }}
           tag_name: ${{ env.TAG_NAME }}
+          generate_release_notes: true
           draft: false
           prerelease: false
           files: |
@@ -91,6 +105,5 @@ jobs:
             ./publish/gfwlist.txt.sha256sum
             ./publish/rules.tar
             ./publish/rules.tar.sha256sum
-
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
